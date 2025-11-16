@@ -421,7 +421,7 @@ class AdsterraSmartlinkOpener:
         
         # Initialize UserAgent generator
         try:
-            self.ua = UserAgent(use_cache_server=True, fallback='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+            self.ua = UserAgent(browsers=['Edge', 'Safari', 'Chrome'],fallback='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
             print("✓ UserAgent generator initialized")
         except Exception as e:
             print(f"⚠ Warning: Failed to initialize UserAgent generator: {e}")

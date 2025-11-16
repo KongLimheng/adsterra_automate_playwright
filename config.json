@@ -101,7 +101,7 @@
     "timeout": 60000,
     "wait_after_open": 60,
     "visit_duration": 30,
-    "recycle_interval_seconds": 600,
+    "recycle_interval_seconds": 900,
     "parallel_smartlinks": 5
   }
 }
