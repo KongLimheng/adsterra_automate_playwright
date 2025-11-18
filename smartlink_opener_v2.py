@@ -12,15 +12,22 @@ import sys
 import random
 import time
 from pathlib import Path
-from playwright.async_api import Browser, BrowserType, Playwright, async_playwright, TimeoutError as PlaywrightTimeoutError
+from playwright.async_api import (
+    Browser,
+    BrowserType,
+    Playwright,
+    async_playwright,
+    TimeoutError as PlaywrightTimeoutError,
+)
 from typing import List, Dict, Optional, Tuple
-from datetime import datetime
+from datetime import datetime, timedelta
 from urllib.parse import urlparse
 from fake_useragent import UserAgent
 
 
 class TrafficStats:
     """Track traffic statistics with detailed logging."""
+
     def __init__(self):
         self.total_opens = 0
         self.successful_opens = 0
@@ -29,79 +36,101 @@ class TrafficStats:
         self.start_time = datetime.now()
         self.detailed_logs = []  # List of all operations with details
         self.cycle_stats = []  # List of cycle statistics
-    
-    def record_success(self, profile_name: str, url: str, final_url: str = None, duration: float = None):
+
+    def record_success(
+        self, profile_name: str, url: str, final_url: str = None, duration: float = None
+    ):
         """Record a successful open."""
         self.total_opens += 1
         self.successful_opens += 1
         if profile_name not in self.profile_stats:
             self.profile_stats[profile_name] = {"success": 0, "failed": 0}
         self.profile_stats[profile_name]["success"] += 1
-        
+
         # Log detailed information
-        self.detailed_logs.append({
-            "timestamp": datetime.now().isoformat(),
-            "profile": profile_name,
-            "url": url,
-            "final_url": final_url or url,
-            "status": "success",
-            "duration": duration,
-            "error": None
-        })
-    
-    def record_failure(self, profile_name: str, url: str, error: str = None, duration: float = None):
+        self.detailed_logs.append(
+            {
+                "timestamp": datetime.now().isoformat(),
+                "profile": profile_name,
+                "url": url,
+                "final_url": final_url or url,
+                "status": "success",
+                "duration": duration,
+                "error": None,
+            }
+        )
+
+    def record_failure(
+        self, profile_name: str, url: str, error: str = None, duration: float = None
+    ):
         """Record a failed open."""
         self.total_opens += 1
         self.failed_opens += 1
         if profile_name not in self.profile_stats:
             self.profile_stats[profile_name] = {"success": 0, "failed": 0}
         self.profile_stats[profile_name]["failed"] += 1
-        
+
         # Log detailed information
-        self.detailed_logs.append({
-            "timestamp": datetime.now().isoformat(),
-            "profile": profile_name,
-            "url": url,
-            "final_url": None,
-            "status": "failed",
-            "duration": duration,
-            "error": error or "Unknown error"
-        })
-    
-    def record_cycle(self, cycle_num: int, cycle_success: int, cycle_failed: int, cycle_duration: float):
+        self.detailed_logs.append(
+            {
+                "timestamp": datetime.now().isoformat(),
+                "profile": profile_name,
+                "url": url,
+                "final_url": None,
+                "status": "failed",
+                "duration": duration,
+                "error": error or "Unknown error",
+            }
+        )
+
+    def record_cycle(
+        self,
+        cycle_num: int,
+        cycle_success: int,
+        cycle_failed: int,
+        cycle_duration: float,
+    ):
         """Record cycle statistics."""
-        self.cycle_stats.append({
-            "cycle": cycle_num,
-            "timestamp": datetime.now().isoformat(),
-            "success": cycle_success,
-            "failed": cycle_failed,
-            "total": cycle_success + cycle_failed,
-            "duration": cycle_duration
-        })
-    
+        self.cycle_stats.append(
+            {
+                "cycle": cycle_num,
+                "timestamp": datetime.now().isoformat(),
+                "success": cycle_success,
+                "failed": cycle_failed,
+                "total": cycle_success + cycle_failed,
+                "duration": cycle_duration,
+            }
+        )
+
     def print_summary(self):
         """Print statistics summary."""
         duration = datetime.now() - self.start_time
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("TRAFFIC STATISTICS SUMMARY")
-        print("="*60)
+        print("=" * 60)
         print(f"Total Opens: {self.total_opens}")
-        print(f"Successful: {self.successful_opens} ({self.successful_opens/max(self.total_opens,1)*100:.1f}%)")
-        print(f"Failed: {self.failed_opens} ({self.failed_opens/max(self.total_opens,1)*100:.1f}%)")
+        print(
+            f"Successful: {self.successful_opens} ({self.successful_opens/max(self.total_opens,1)*100:.1f}%)"
+        )
+        print(
+            f"Failed: {self.failed_opens} ({self.failed_opens/max(self.total_opens,1)*100:.1f}%)"
+        )
         print(f"Duration: {duration}")
-        print(f"Average Rate: {self.total_opens/max(duration.total_seconds(),1):.2f} opens/sec")
+        print(
+            f"Average Rate: {self.total_opens/max(duration.total_seconds(),1):.2f} opens/sec"
+        )
         print("\nPer Profile:")
         for profile, stats in self.profile_stats.items():
             total = stats["success"] + stats["failed"]
             print(f"  {profile}: {stats['success']}/{total} successful")
-        print("="*60)
-    
+        print("=" * 60)
+
     def generate_html_report(self, output_path: str = "traffic_report.html"):
         """Generate an HTML report with detailed statistics."""
         duration = datetime.now() - self.start_time
         success_rate = (self.successful_opens / max(self.total_opens, 1)) * 100
         failure_rate = (self.failed_opens / max(self.total_opens, 1)) * 100
-        
+
         # Generate profile stats HTML
         profile_rows = ""
         for profile, stats in sorted(self.profile_stats.items()):
@@ -116,7 +145,7 @@ class TrafficStats:
                 <td>{profile_success_rate:.1f}%</td>
             </tr>
             """
-        
+
         # Generate cycle stats HTML
         cycle_rows = ""
         for cycle in self.cycle_stats:
@@ -132,9 +161,13 @@ class TrafficStats:
                 <td>{cycle['duration']:.1f}s</td>
             </tr>
             """
-        
+
         # Generate recent logs HTML (last 50)
-        recent_logs = self.detailed_logs[-50:] if len(self.detailed_logs) > 50 else self.detailed_logs
+        recent_logs = (
+            self.detailed_logs[-50:]
+            if len(self.detailed_logs) > 50
+            else self.detailed_logs
+        )
         log_rows = ""
         for log in reversed(recent_logs):
             status_class = "success" if log["status"] == "success" else "failed"
@@ -149,7 +182,7 @@ class TrafficStats:
                 <td>{log['error'] or '-'}</td>
             </tr>
             """
-        
+
         html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -403,10 +436,10 @@ class TrafficStats:
 </body>
 </html>
         """
-        
+
         # Write HTML file
         output_file = Path(output_path)
-        output_file.write_text(html_content, encoding='utf-8')
+        output_file.write_text(html_content, encoding="utf-8")
         return output_file.absolute()
 
 
@@ -418,49 +451,52 @@ class AdsterraSmartlinkOpener:
         self.profiles_dir = Path("profiles")
         self.profiles_dir.mkdir(exist_ok=True)
         self.stats = TrafficStats()
-        
+
         # Initialize UserAgent generator
         try:
-            self.ua = UserAgent(browsers=['Edge', 'Safari', 'Chrome'],fallback='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+            self.ua = UserAgent(
+                browsers=["Edge", "Safari", "Chrome"],
+                fallback="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            )
             print("✓ UserAgent generator initialized")
         except Exception as e:
             print(f"⚠ Warning: Failed to initialize UserAgent generator: {e}")
             print("  Falling back to manual user agent generation")
             self.ua = None
-        
+
         # Proxy list - format: username:password
         # These will be randomly selected for each smartlink visit
         self.proxy_credentials = [
-            'zhogyichan.custom36:hello123',
-            'zhogyichan.custom38:hello123',
+            "zhogyichan.custom36:hello123",
+            "zhogyichan.custom38:hello123",
         ]
-        
+
         # Proxy server configuration (adjust if your proxy service uses different host/port)
-        # Common proxy services: 
+        # Common proxy services:
         # - Bright Data: zproxy.lum-superproxy.io:22225
         # - Smartproxy: gateway.smartproxy.com:10000
         # - ProxyEmpire: rotating-residential.proxyempire.io:8080
         # Update these to match your proxy service
         self.proxy_server_host = "154.198.32.71"  # Update this to your proxy server
         self.proxy_server_port = 8083  # Update this to your proxy port
-        
+
     def _load_config(self) -> Dict:
         """Load configuration from JSON file."""
         try:
-            with open(self.config_path, 'r') as f:
+            with open(self.config_path, "r") as f:
                 return json.load(f)
         except FileNotFoundError:
             raise FileNotFoundError(f"Configuration file {self.config_path} not found!")
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON in configuration file: {e}")
-    
+
     def _get_profile_path(self, profile_name: str) -> Path:
         """Get the path for a user profile directory."""
         return self.profiles_dir / profile_name
-    
+
     def _parse_proxy(self, proxy_string: Optional[str]) -> Optional[Dict]:
         """Parse proxy string into Playwright format.
-        
+
         Supports formats:
         - http://user:pass@host:port
         - socks5://user:pass@host:port
@@ -469,86 +505,82 @@ class AdsterraSmartlinkOpener:
         """
         if not proxy_string:
             return None
-        
+
         try:
             # If format is "username:password" (no @ or ://), construct full proxy URL
-            if '://' not in proxy_string and '@' not in proxy_string:
-                if ':' in proxy_string:
-                    parts = proxy_string.split(':', 1)
+            if "://" not in proxy_string and "@" not in proxy_string:
+                if ":" in proxy_string:
+                    parts = proxy_string.split(":", 1)
                     if len(parts) == 2:
                         username = parts[0]
                         password = parts[1]
                         # Construct full proxy URL
                         proxy_string = f"http://{username}:{password}@{self.proxy_server_host}:{self.proxy_server_port}"
-            
+
             # If no protocol, assume http
-            if not proxy_string.startswith(('http://', 'https://', 'socks5://')):
+            if not proxy_string.startswith(("http://", "https://", "socks5://")):
                 proxy_string = f"http://{proxy_string}"
-            
+
             parsed = urlparse(proxy_string)
-            
+
             proxy_dict = {
                 "server": f"{parsed.scheme}://{parsed.hostname}:{parsed.port}"
             }
-            
+
             if parsed.username and parsed.password:
                 proxy_dict["username"] = parsed.username
                 proxy_dict["password"] = parsed.password
-            
+
             return proxy_dict
         except Exception as e:
             print(f"Warning: Invalid proxy format '{proxy_string}': {e}")
             return None
-    
+
     def _get_random_proxy(self) -> Optional[str]:
         """Get a random proxy from the proxy list."""
         if not self.proxy_credentials:
             return None
         return random.choice(self.proxy_credentials)
-    
-    async def _create_browser_and_context(
-        self, 
-        chromium: BrowserType,
-        profile: Dict
-    ):
+
+    async def _create_browser_and_context(self, chromium: BrowserType, profile: Dict):
         """Create a browser instance and context with custom fingerprint, profile, and proxy."""
         profile_path = self._get_profile_path(profile["name"])
         # profile_path.mkdir(exist_ok=True)
-        
+
         # Parse proxy configuration
         proxy_config = self._parse_proxy(profile.get("proxy"))
-        
+
         # Browser arguments - minimal set to avoid crashes
         args = [
-            '--disable-blink-features=AutomationControlled',
-            '--disable-dev-shm-usage',
+            "--disable-blink-features=AutomationControlled",
+            "--disable-dev-shm-usage",
             # '--disable-crash-reporter',
-            '--disable-breakpad',
-            '--disable-logging',
-            '--log-level=3',
-            '--disable-infobars',
-            '--disable-notifications',
-            '--disable-background-networking',
-            '--disable-background-timer-throttling',
+            "--disable-breakpad",
+            "--disable-logging",
+            "--log-level=3",
+            "--disable-infobars",
+            "--disable-notifications",
+            "--disable-background-networking",
+            "--disable-background-timer-throttling",
         ]
-        
+
         # Only add --no-sandbox on Linux, not on macOS
-        if sys.platform != 'darwin':
-            args.append('--no-sandbox')
-        
+        if sys.platform != "darwin":
+            args.append("--no-sandbox")
+
         # Launch browser first (more stable than persistent context)
         try:
             browser = await chromium.launch(
                 headless=self.config["settings"]["headless"],
                 args=args,
-                ignore_default_args=['--enable-automation', '--metrics-recording-only'],
+                ignore_default_args=["--enable-automation", "--metrics-recording-only"],
             )
-            
+
             # Create context with profile settings
             context_options = {
                 "viewport": {
                     "width": profile["viewport"]["width"],
-                    "height": profile["viewport"]["height"]
+                    "height": profile["viewport"]["height"],
                 },
                 "locale": profile["locale"],
                 "timezone_id": profile["timezone"],
@@ -561,44 +593,48 @@ class AdsterraSmartlinkOpener:
                     "Upgrade-Insecure-Requests": "1",
                 },
             }
-            print(proxy_config,"===")
+            print(proxy_config, "===")
             # Add proxy if configured
             if proxy_config:
                 context_options["proxy"] = proxy_config
-                print(f"[{profile['name']}] Using proxy: {proxy_config['server']} {proxy_config['username']}")
-            
+                print(
+                    f"[{profile['name']}] Using proxy: {proxy_config['server']} {proxy_config['username']}"
+                )
+
             # Create context from browser
             context = await browser.new_context(**context_options)
-            
+
             # Store profile config and browser reference for later use
             context._profile_config = profile
             context._browser = browser  # Keep browser reference to close later
-            
+
             return context
         except Exception as e:
-            print(f"Failed to create browser context for profile '{profile['name']}': {e}")
+            print(
+                f"Failed to create browser context for profile '{profile['name']}': {e}"
+            )
             raise
-    
+
     def _get_edge_user_agent_data(self, profile: Dict) -> str:
         """Generate Edge-specific userAgentData property."""
         user_agent = profile.get("user_agent", "")
-        
+
         # Extract Edge and Chrome versions from user agent
         edge_version = "120.0.0.0"
         chrome_version = "120.0.0.0"
-        
+
         if "Edg/" in user_agent:
             try:
                 edge_version = user_agent.split("Edg/")[1].split()[0]
             except:
                 pass
-        
+
         if "Chrome/" in user_agent:
             try:
                 chrome_version = user_agent.split("Chrome/")[1].split()[0]
             except:
                 pass
-        
+
         return f"""
                 // Edge-specific userAgentData
                 Object.defineProperty(navigator, 'userAgentData', {{
@@ -616,11 +652,11 @@ class AdsterraSmartlinkOpener:
                     }})
                 }});
         """
-    
+
     def _get_safari_fingerprint_script(self, profile: Dict) -> str:
         """Generate Safari-specific fingerprinting properties."""
         user_agent = profile.get("user_agent", "")
-        
+
         # Extract Safari version from user agent
         safari_version = "17.2"
         webkit_version = "605.1.15"
@@ -634,7 +670,7 @@ class AdsterraSmartlinkOpener:
                 webkit_version = user_agent.split("AppleWebKit/")[1].split()[0]
             except:
                 pass
-        
+
         # Extract app version
         app_version = "5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15"
         if "Mozilla/" in user_agent:
@@ -642,7 +678,7 @@ class AdsterraSmartlinkOpener:
                 app_version = user_agent.split("Mozilla/")[1]
             except:
                 pass
-        
+
         return f"""
                 // Safari-specific properties - comprehensive fingerprinting
                 
@@ -737,7 +773,7 @@ class AdsterraSmartlinkOpener:
                     }};
                 }}
         """
-    
+
     def _get_fingerprint_script(self, profile: Dict, profile_name: str) -> str:
         """Generate fingerprint injection script."""
         profile_hash = hash(profile_name) % 4
@@ -745,7 +781,7 @@ class AdsterraSmartlinkOpener:
         browser_type = profile.get("browser_type", "chrome")
         is_edge = browser_type == "edge"
         is_safari = browser_type == "safari"
-        
+
         # Safari doesn't support deviceMemory
         device_memory_script = ""
         if not is_safari:
@@ -754,7 +790,7 @@ class AdsterraSmartlinkOpener:
                 Object.defineProperty(navigator, 'deviceMemory', {{
                     get: () => {hardware_value}
                 }});"""
-        
+
         # Chrome object (Safari doesn't have it)
         chrome_object_script = ""
         if not is_safari:
@@ -763,7 +799,7 @@ class AdsterraSmartlinkOpener:
                 window.chrome = {
                     runtime: {}
                 };"""
-        
+
         return f"""
             (function() {{
                 // Remove webdriver property
@@ -845,7 +881,7 @@ class AdsterraSmartlinkOpener:
                 );
             }})();
         """
-    
+
     async def _safe_evaluate(self, page, script: str, default_value=None):
         """Safely evaluate JavaScript, handling navigation/context destruction."""
         try:
@@ -857,20 +893,22 @@ class AdsterraSmartlinkOpener:
             if "Execution context was destroyed" in str(e) or "Target closed" in str(e):
                 return default_value
             raise
-    
+
     async def _safe_scroll(self, page, position: int):
         """Safely scroll to position, handling navigation events."""
         try:
             if page.is_closed():
                 return False
-            await page.evaluate(f"window.scrollTo({{top: {position}, behavior: 'smooth'}})")
+            await page.evaluate(
+                f"window.scrollTo({{top: {position}, behavior: 'smooth'}})"
+            )
             return True
         except Exception as e:
             # Context destroyed or page navigated - this is normal during redirects
             if "Execution context was destroyed" in str(e) or "Target closed" in str(e):
                 return False
             return False
-    
+
     async def _simulate_human_scrolling(self, page, duration: float):
         """Simulate human-like scrolling behavior during page visit."""
         try:
@@ -878,32 +916,33 @@ class AdsterraSmartlinkOpener:
             if page.is_closed():
                 await asyncio.sleep(duration)
                 return
-            
+
             # Get page dimensions with error handling
             viewport_size = page.viewport_size
             if not viewport_size:
                 viewport_size = {"width": 1920, "height": 1080}
-            
+
             # Get page height safely
             page_height = await self._safe_evaluate(
-                page, 
+                page,
                 "document.body.scrollHeight || document.documentElement.scrollHeight",
-                default_value=viewport_size["height"] * 3  # Default to 3x viewport if can't get height
+                default_value=viewport_size["height"]
+                * 3,  # Default to 3x viewport if can't get height
             )
             viewport_height = viewport_size["height"]
-            
+
             # If we can't get page height, just wait (page might be redirecting)
             if page_height is None or page_height <= viewport_height:
                 await asyncio.sleep(duration)
                 return
-            
+
             # Calculate scroll steps
             scroll_steps = max(3, int(duration / 2))  # Scroll every ~2 seconds
             scroll_distance = max(100, page_height / scroll_steps)
-            
+
             elapsed = 0
             current_position = 0
-            
+
             while elapsed < duration:
                 # Check if page is still valid before each action
                 if page.is_closed():
@@ -912,15 +951,20 @@ class AdsterraSmartlinkOpener:
                     if remaining > 0:
                         await asyncio.sleep(remaining)
                     break
-                
+
                 # Random scroll action
-                scroll_type = random.choice(['down', 'down', 'down', 'up', 'pause'])
-                
-                if scroll_type == 'down' and current_position < page_height - viewport_height:
+                scroll_type = random.choice(["down", "down", "down", "up", "pause"])
+
+                if (
+                    scroll_type == "down"
+                    and current_position < page_height - viewport_height
+                ):
                     # Scroll down
                     scroll_amount = random.randint(100, min(500, int(scroll_distance)))
-                    current_position = min(current_position + scroll_amount, page_height - viewport_height)
-                    
+                    current_position = min(
+                        current_position + scroll_amount, page_height - viewport_height
+                    )
+
                     # Safely scroll
                     scroll_success = await self._safe_scroll(page, current_position)
                     if not scroll_success:
@@ -929,16 +973,16 @@ class AdsterraSmartlinkOpener:
                         if remaining > 0:
                             await asyncio.sleep(remaining)
                         break
-                    
+
                     wait_time = random.uniform(0.5, 2.0)
                     await asyncio.sleep(wait_time)
                     elapsed += wait_time
-                    
-                elif scroll_type == 'up' and current_position > 0:
+
+                elif scroll_type == "up" and current_position > 0:
                     # Scroll up a bit (like reading)
                     scroll_amount = random.randint(50, 200)
                     current_position = max(0, current_position - scroll_amount)
-                    
+
                     # Safely scroll
                     scroll_success = await self._safe_scroll(page, current_position)
                     if not scroll_success:
@@ -947,17 +991,17 @@ class AdsterraSmartlinkOpener:
                         if remaining > 0:
                             await asyncio.sleep(remaining)
                         break
-                    
+
                     wait_time = random.uniform(0.3, 1.5)
                     await asyncio.sleep(wait_time)
                     elapsed += wait_time
-                    
+
                 else:
                     # Pause (reading)
                     wait_time = random.uniform(1.0, 3.0)
                     await asyncio.sleep(wait_time)
                     elapsed += wait_time
-                
+
                 # Random mouse movements
                 if random.random() < 0.3:  # 30% chance
                     try:
@@ -967,130 +1011,143 @@ class AdsterraSmartlinkOpener:
                             await page.mouse.move(x, y)
                     except:
                         pass  # Ignore mouse movement errors
-                
+
                 # Check if we've used up the duration
                 if elapsed >= duration:
                     break
-            
+
             # Final scroll to bottom or random position (only if page is still valid)
             if not page.is_closed() and elapsed < duration:
                 try:
                     if random.random() < 0.5:
                         await self._safe_scroll(page, page_height)
                     else:
-                        final_pos = random.randint(0, max(0, page_height - viewport_height))
+                        final_pos = random.randint(
+                            0, max(0, page_height - viewport_height)
+                        )
                         await self._safe_scroll(page, final_pos)
                     await asyncio.sleep(0.5)
                 except:
                     pass  # Ignore final scroll errors
-                
+
         except Exception as e:
             # If scrolling fails completely, just wait for the duration
             error_msg = str(e)
             # Only print if it's not a context destruction error (which is normal)
-            if "Execution context was destroyed" not in error_msg and "Target closed" not in error_msg:
+            if (
+                "Execution context was destroyed" not in error_msg
+                and "Target closed" not in error_msg
+            ):
                 print(f"  Warning: Scrolling simulation error: {error_msg[:100]}")
             # Wait remaining time
             await asyncio.sleep(duration)
-    
+
     async def _wait_for_adsterra_redirect(self, page, max_wait: int = 30) -> bool:
         """Wait for Adsterra redirect chain to complete."""
         try:
             # Wait for page to be ready (more lenient for redirects)
             try:
-                await page.wait_for_load_state("domcontentloaded", timeout=max_wait * 1000)
+                await page.wait_for_load_state(
+                    "domcontentloaded", timeout=max_wait * 1000
+                )
             except:
                 # If domcontentloaded fails, try load state
                 try:
                     await page.wait_for_load_state("load", timeout=10000)
                 except:
                     pass  # Continue anyway
-            
+
             # Wait a bit for JavaScript redirects
             await asyncio.sleep(1)
-            
+
             # Check if we're still on the page (not closed)
             if page.is_closed():
                 return False
-            
+
             return True
         except PlaywrightTimeoutError:
             return True  # Timeout is okay, page might still be loading
         except Exception as e:
             # Don't fail on redirect errors - they're common with Adsterra
             return True
-    
+
     async def open_smartlink(
-        self, 
-        context, 
-        url: str, 
-        profile_name: str,
-        visit_duration: Optional[int] = None
+        self, context, url: str, profile_name: str, visit_duration: Optional[int] = None
     ) -> bool:
         """Open an Adsterra smartlink in a new page with full fingerprinting."""
         page = None
         start_time = time.time()
         try:
             page = await context.new_page()
-            
+
             # Get profile config
-            profile = getattr(context, '_profile_config', {})
-            
+            profile = getattr(context, "_profile_config", {})
+
             # Inject fingerprinting script before navigation
             fingerprint_script = self._get_fingerprint_script(profile, profile_name)
             await page.add_init_script(fingerprint_script)
-            
+
             # Set extra headers
-            await page.set_extra_http_headers({
-                "Accept-Language": profile.get("locale", "en-US"),
-            })
-            
+            await page.set_extra_http_headers(
+                {
+                    "Accept-Language": profile.get("locale", "en-US"),
+                }
+            )
+
             print(f"[{profile_name}] Opening: {url[:60]}...")
-            
+
             # Navigate to smartlink with better error handling for redirects
             try:
                 # Use commit instead of domcontentloaded to handle redirects better
                 response = await page.goto(
-                    url, 
+                    url,
                     wait_until="commit",  # Changed from domcontentloaded to commit for better redirect handling
-                    timeout=self.config["settings"]["timeout"]
+                    timeout=self.config["settings"]["timeout"],
                 )
-                
+
                 # Check if response is valid (redirects might return None)
                 if response and response.status >= 400:
                     # If we get an error status, try to continue anyway (redirects might still work)
-                    print(f"[{profile_name}] Warning: HTTP {response.status}, continuing...")
-                
+                    print(
+                        f"[{profile_name}] Warning: HTTP {response.status}, continuing..."
+                    )
+
             except Exception as nav_error:
                 # If navigation fails, check if page loaded anyway (redirects can cause this)
                 try:
                     current_url = page.url
                     if current_url and current_url != "about:blank":
-                        print(f"[{profile_name}] Navigation error but page loaded: {current_url[:60]}...")
+                        print(
+                            f"[{profile_name}] Navigation error but page loaded: {current_url[:60]}..."
+                        )
                     else:
                         raise nav_error
                 except:
                     # If page didn't load, try one more time with networkidle
                     try:
-                        await page.goto(url, wait_until="networkidle", timeout=self.config["settings"]["timeout"])
+                        await page.goto(
+                            url,
+                            wait_until="networkidle",
+                            timeout=self.config["settings"]["timeout"],
+                        )
                     except:
                         raise nav_error
-            
+
             # Wait for Adsterra redirect chain with better error handling
             redirect_success = await self._wait_for_adsterra_redirect(page)
-            
+
             if not redirect_success or page.is_closed():
                 raise Exception("Page closed during redirect")
-            
+
             # Random visit duration to simulate human behavior
             if visit_duration is None:
                 visit_duration = self.config["settings"].get("visit_duration", 5)
                 # Add some randomness
                 visit_duration += random.uniform(-1, 3)
-            
+
             # Simulate human scrolling behavior during visit
             await self._simulate_human_scrolling(page, max(1, visit_duration))
-            
+
             # Check final URL (for debugging)
             final_url = url
             try:
@@ -1099,29 +1156,42 @@ class AdsterraSmartlinkOpener:
                     print(f"[{profile_name}] Redirected to: {final_url[:60]}...")
             except:
                 pass
-            
+
             duration = time.time() - start_time
-            self.stats.record_success(profile_name, url, final_url=final_url, duration=duration)
+            self.stats.record_success(
+                profile_name, url, final_url=final_url, duration=duration
+            )
             print(f"[{profile_name}] ✓ Successfully processed")
-            
+
             return True
-            
+
         except Exception as e:
             duration = time.time() - start_time
             error_msg = str(e)[:100]
-            self.stats.record_failure(profile_name, url, error=error_msg, duration=duration)
+            self.stats.record_failure(
+                profile_name, url, error=error_msg, duration=duration
+            )
             # Don't print common redirect errors as failures
             if "ERR_HTTP_RESPONSE_CODE_FAILURE" in error_msg or "net::ERR" in error_msg:
-                print(f"[{profile_name}] ⚠ Redirect error (may still be successful): {error_msg}")
+                print(
+                    f"[{profile_name}] ⚠ Redirect error (may still be successful): {error_msg}"
+                )
                 # Sometimes redirect errors still result in successful visits
                 # Check if page loaded anyway
                 try:
                     if page and not page.is_closed():
                         current_url = page.url
                         if current_url and current_url != "about:blank":
-                            print(f"[{profile_name}] Page loaded despite error: {current_url[:60]}...")
+                            print(
+                                f"[{profile_name}] Page loaded despite error: {current_url[:60]}..."
+                            )
                             duration = time.time() - start_time
-                            self.stats.record_success(profile_name, url, final_url=current_url, duration=duration)
+                            self.stats.record_success(
+                                profile_name,
+                                url,
+                                final_url=current_url,
+                                duration=duration,
+                            )
                             return True
                 except:
                     pass
@@ -1135,8 +1205,10 @@ class AdsterraSmartlinkOpener:
                     await page.close()
             except:
                 pass
-    
-    def _generate_random_profile(self, profile_index: int = 0, use_proxy: bool = True) -> Dict:
+
+    def _generate_random_profile(
+        self, profile_index: int = 0, use_proxy: bool = True
+    ) -> Dict:
         """Generate a random profile with random fingerprints and optional random proxy.
         Uses fake-useragent package for realistic user agent generation."""
         # Random viewports
@@ -1147,89 +1219,126 @@ class AdsterraSmartlinkOpener:
             {"width": 2560, "height": 1440},
             {"width": 1536, "height": 864},
         ]
-        
+
         # Random timezones
         timezones = [
-            "America/New_York", "America/Los_Angeles", "America/Chicago",
-            "America/Denver", "Europe/London", "Europe/Paris", "Asia/Tokyo",
-            "Asia/Shanghai", "Australia/Sydney", "America/Sao_Paulo"
+            "America/New_York",
+            "America/Los_Angeles",
+            "America/Chicago",
+            "America/Denver",
+            "Europe/London",
+            "Europe/Paris",
+            "Asia/Tokyo",
+            "Asia/Shanghai",
+            "Australia/Sydney",
+            "America/Sao_Paulo",
         ]
-        
+
         # Random locales
-        locales = ["en-US", "en-GB", "en-CA", "en-AU", "fr-FR", "de-DE", "es-ES", "ja-JP", "zh-CN"]
-        
+        locales = [
+            "en-US",
+            "en-GB",
+            "en-CA",
+            "en-AU",
+            "fr-FR",
+            "de-DE",
+            "es-ES",
+            "ja-JP",
+            "zh-CN",
+        ]
+
         # Random WebGL vendors/renderers (Safari uses different format)
         chrome_webgl_configs = [
-            {"vendor": "Google Inc. (NVIDIA)", "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 3080 Direct3D11 vs_5_0 ps_5_0, D3D11)"},
-            {"vendor": "Google Inc. (Mesa)", "renderer": "ANGLE (Mesa, Mesa DRI Intel(R) HD Graphics 620 (KBL GT2), OpenGL 4.5)"},
-            {"vendor": "Google Inc. (AMD)", "renderer": "ANGLE (AMD, AMD Radeon RX 6800 XT Direct3D11 vs_5_0 ps_5_0, D3D11)"},
-            {"vendor": "Google Inc. (Intel)", "renderer": "ANGLE (Intel, Intel(R) UHD Graphics 630 Direct3D11 vs_5_0 ps_5_0, D3D11)"},
+            {
+                "vendor": "Google Inc. (NVIDIA)",
+                "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 3080 Direct3D11 vs_5_0 ps_5_0, D3D11)",
+            },
+            {
+                "vendor": "Google Inc. (Mesa)",
+                "renderer": "ANGLE (Mesa, Mesa DRI Intel(R) HD Graphics 620 (KBL GT2), OpenGL 4.5)",
+            },
+            {
+                "vendor": "Google Inc. (AMD)",
+                "renderer": "ANGLE (AMD, AMD Radeon RX 6800 XT Direct3D11 vs_5_0 ps_5_0, D3D11)",
+            },
+            {
+                "vendor": "Google Inc. (Intel)",
+                "renderer": "ANGLE (Intel, Intel(R) UHD Graphics 630 Direct3D11 vs_5_0 ps_5_0, D3D11)",
+            },
         ]
-        
+
         safari_webgl_configs = [
             {"vendor": "Apple Inc.", "renderer": "Apple M1"},
             {"vendor": "Apple Inc.", "renderer": "Apple M2"},
             {"vendor": "Intel Inc.", "renderer": "Intel Iris OpenGL Engine"},
             {"vendor": "Apple Inc.", "renderer": "Apple GPU"},
         ]
-        
+
         # Generate user agent using fake-useragent package with weighted distribution
         # Target: 45% Edge, 45% Safari, 10% Chrome
         user_agent = None
         browser = "chrome"  # Default
         platform_name = "Win32"
-        
+
         if self.ua:
             try:
                 # Determine target browser based on weighted random (45% Edge, 45% Safari, 10% Chrome)
                 target_browser_roll = random.random()
                 target_browser = None
-                
+
                 if target_browser_roll < 0.45:  # 45% Edge
                     target_browser = "edge"
                 elif target_browser_roll < 0.90:  # 45% Safari (45% + 45% = 90%)
                     target_browser = "safari"
                 else:  # 10% Chrome (90% + 10% = 100%)
                     target_browser = "chrome"
-                
+
                 # Try to get a user agent matching target browser
                 max_attempts = 20  # Try up to 20 times to get the desired browser
                 attempt = 0
-                
+
                 while attempt < max_attempts:
                     try:
                         # Get random user agent from package
                         user_agent = self.ua.random
                         ua_lower = user_agent.lower()
-                        
+
                         # Detect browser type from user agent
                         detected_browser = None
-                        if "edg/" in ua_lower or ("edge" in ua_lower and "edg/" in ua_lower):
+                        if "edg/" in ua_lower or (
+                            "edge" in ua_lower and "edg/" in ua_lower
+                        ):
                             detected_browser = "edge"
-                        elif "safari" in ua_lower and "chrome" not in ua_lower and "edg" not in ua_lower:
+                        elif (
+                            "safari" in ua_lower
+                            and "chrome" not in ua_lower
+                            and "edg" not in ua_lower
+                        ):
                             detected_browser = "safari"
                         elif "chrome" in ua_lower and "edg" not in ua_lower:
                             detected_browser = "chrome"
-                        
+
                         # If detected browser matches target, use it
                         if detected_browser == target_browser:
                             browser = detected_browser
                             break
-                        
+
                         # If we're looking for Chrome and got Chrome, use it (even if not perfect match)
                         if target_browser == "chrome" and detected_browser == "chrome":
                             browser = "chrome"
                             break
-                        
+
                         attempt += 1
-                        
+
                     except Exception as e:
                         attempt += 1
                         if attempt >= max_attempts:
-                            print(f"⚠ Warning: Failed to get user agent after {max_attempts} attempts: {e}")
+                            print(
+                                f"⚠ Warning: Failed to get user agent after {max_attempts} attempts: {e}"
+                            )
                             user_agent = None
                             break
-                
+
                 # If we got a user agent, set browser and platform
                 if user_agent:
                     ua_lower = user_agent.lower()
@@ -1260,11 +1369,11 @@ class AdsterraSmartlinkOpener:
                             platform_name = "Win32"
                 else:
                     user_agent = None
-                    
+
             except Exception as e:
                 print(f"⚠ Warning: Failed to get user agent from package: {e}")
                 user_agent = None
-        
+
         # Fallback to manual generation if package fails
         if not user_agent:
             # Platform selection (OS first, then browser)
@@ -1272,17 +1381,26 @@ class AdsterraSmartlinkOpener:
                 {"name": "Win32", "ua_base": "Windows NT 10.0; Win64; x64"},
                 {"name": "Win11", "ua_base": "Windows NT 11.0; Win64; x64"},
                 {"name": "MacIntel", "ua_base": "Macintosh; Intel Mac OS X 10_15_7"},
-                {"name": "MacAppleSilicon_M1", "ua_base": "Macintosh; arm64; Mac OS X 14_0"},
-                {"name": "MacAppleSilicon_M2", "ua_base": "Macintosh; arm64; Mac OS X 13_5"},
-                {"name": "MacAppleSilicon_M3", "ua_base": "Macintosh; arm64; Mac OS X 15_0"},
-                {"name": "Linux x86_64", "ua_base": "X11; Linux x86_64"}
+                {
+                    "name": "MacAppleSilicon_M1",
+                    "ua_base": "Macintosh; arm64; Mac OS X 14_0",
+                },
+                {
+                    "name": "MacAppleSilicon_M2",
+                    "ua_base": "Macintosh; arm64; Mac OS X 13_5",
+                },
+                {
+                    "name": "MacAppleSilicon_M3",
+                    "ua_base": "Macintosh; arm64; Mac OS X 15_0",
+                },
+                {"name": "Linux x86_64", "ua_base": "X11; Linux x86_64"},
             ]
-            
+
             os_platform = random.choice(os_platforms)
-            
+
             # Then select browser based on weighted distribution (45% Edge, 45% Safari, 10% Chrome)
             browser_roll = random.random()
-            
+
             if os_platform["name"] == "Win32" or os_platform["name"] == "Win11":
                 # Windows: 45% Edge, 10% Chrome (Safari not available on Windows)
                 if browser_roll < 0.45:  # 45% Edge
@@ -1303,31 +1421,61 @@ class AdsterraSmartlinkOpener:
                 # Linux: 10% Chrome only (Edge and Safari not available)
                 browser = "chrome"
                 platform_name = "Linux x86_64"
-            
+
             # Override: Force weighted distribution regardless of OS
             # This ensures we get the target distribution
             browser_roll_override = random.random()
             if browser_roll_override < 0.45:  # 45% Edge
                 # Force Edge - use Windows platform
                 browser = "edge"
-                os_platform = {"name": "Win32", "ua_base": "Windows NT 10.0; Win64; x64"}
+                os_platform = {
+                    "name": "Win32",
+                    "ua_base": "Windows NT 10.0; Win64; x64",
+                }
                 platform_name = "Win32 (Edge)"
             elif browser_roll_override < 0.90:  # 45% Safari
                 # Force Safari - use macOS platform
                 browser = "safari"
-                os_platform = {"name": "MacIntel", "ua_base": "Macintosh; Intel Mac OS X 10_15_7"}
+                os_platform = {
+                    "name": "MacIntel",
+                    "ua_base": "Macintosh; Intel Mac OS X 10_15_7",
+                }
                 platform_name = "MacIntel (Safari)"
             else:  # 10% Chrome
                 # Keep Chrome with original OS platform
                 browser = "chrome"
                 platform_name = os_platform["name"]
-            
+
             # Browser versions for fallback
-            chrome_versions = ["120.0.0.0", "121.0.0.0", "122.0.0.0", "119.0.0.0", "141.0.7390.37", "142.0.7444.60"]
-            edge_versions = ["123.0.0.0", "139.0.3405.111", "140.0.3485.54", "141.0.3537.99", "142.0.3595.80", "142.0.3595.65"]
-            safari_versions = ["17.2", "17.1", "18.0", "18.1", "18.2", "18.5", "18.6", "26.0", "26.1"]
+            chrome_versions = [
+                "120.0.0.0",
+                "121.0.0.0",
+                "122.0.0.0",
+                "141.0.7390.37",
+                "142.0.7444.60",
+                "140.0.0.0",
+            ]
+            edge_versions = [
+                "123.0.0.0",
+                "139.0.3405.111",
+                "140.0.3485.54",
+                "141.0.3537.99",
+                "142.0.3595.80",
+                "142.0.3595.65",
+            ]
+            safari_versions = [
+                "17.2",
+                "17.1",
+                "18.0",
+                "18.1",
+                "18.2",
+                "18.5",
+                "18.6",
+                "26.0",
+                "26.1",
+            ]
             webkit_versions = ["605.1.15", "605.1.12", "605.1.10", "604.5.6"]
-            
+
             # Generate user agent based on browser type
             if browser == "edge":
                 edge_version = random.choice(edge_versions)
@@ -1339,23 +1487,23 @@ class AdsterraSmartlinkOpener:
             else:  # chrome
                 chrome_version = random.choice(chrome_versions)
                 user_agent = f"Mozilla/5.0 ({os_platform['ua_base']}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{chrome_version} Safari/537.36"
-        
+
         # Select random values
         viewport = random.choice(viewports)
         timezone = random.choice(timezones)
         locale = random.choice(locales)
-        
+
         # Select WebGL config based on browser
         if browser == "safari":
             webgl = random.choice(safari_webgl_configs)
         else:
             webgl = random.choice(chrome_webgl_configs)
-        
+
         # Randomly select proxy for this profile
         proxy = None
         if use_proxy and self.proxy_credentials:
             proxy = self._get_random_proxy()
-        
+
         print("======", browser, "======", user_agent)
         return {
             "name": f"auto_profile_{profile_index}_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
@@ -1367,24 +1515,21 @@ class AdsterraSmartlinkOpener:
             "webgl_vendor": webgl["vendor"],
             "webgl_renderer": webgl["renderer"],
             "proxy": proxy,
-            "browser_type": browser
+            "browser_type": browser,
         }
-    
+
     async def _open_smartlink_with_random_profile(
-        self,
-        browser,
-        smartlink: str,
-        link_index: int = 0
+        self, browser, smartlink: str, link_index: int = 0
     ) -> bool:
         """Open a single smartlink with completely random profile and random proxy."""
         # Generate a completely new random profile for this smartlink
         profile = self._generate_random_profile(link_index, use_proxy=True)
-        
+
         # Create context with this random profile
         context_options = {
             "viewport": {
                 "width": profile["viewport"]["width"],
-                "height": profile["viewport"]["height"]
+                "height": profile["viewport"]["height"],
             },
             "locale": profile["locale"],
             "timezone_id": profile["timezone"],
@@ -1397,25 +1542,27 @@ class AdsterraSmartlinkOpener:
                 "Upgrade-Insecure-Requests": "1",
             },
         }
-        
+
         # Add proxy if configured
         proxy_config = self._parse_proxy(profile.get("proxy"))
         if proxy_config:
             context_options["proxy"] = proxy_config
-            print(f"[{profile['name']}] Using proxy: {proxy_config['server']} {proxy_config['username']}")
-        
+            print(
+                f"[{profile['name']}] Using proxy: {proxy_config['server']} {proxy_config['username']}"
+            )
+
         print(f"{profile['user_agent']}")
-        
+
         context = None
         try:
             # Create new context with random profile and proxy
             context = await browser.new_context(**context_options)
             context._profile_config = profile
-            
+
             # Open smartlink with this context
             result = await self.open_smartlink(context, smartlink, profile["name"])
             return result
-            
+
         except Exception as e:
             print(f"[{profile['name']}] Error: {str(e)[:100]}")
             return False
@@ -1426,198 +1573,221 @@ class AdsterraSmartlinkOpener:
                     await context.close()
             except:
                 pass
-    
+
     async def _process_smartlinks_parallel(
-        self,
-        browser: Browser,
-        smartlinks: List[str],
-        parallel_count: int = 3
+        self, browser: Browser, smartlinks: List[str], parallel_count: int = 3
     ):
         """Process smartlinks in parallel batches with random profile and proxy per smartlink."""
         # Process smartlinks in batches
         for i in range(0, len(smartlinks), parallel_count):
-            batch = smartlinks[i:i + parallel_count]
-            
+            batch = smartlinks[i : i + parallel_count]
+
             # Create tasks for parallel processing - each gets its own random profile
             tasks = [
                 self._open_smartlink_with_random_profile(browser, smartlink, i + j)
                 for j, smartlink in enumerate(batch)
             ]
-            
+
             # Execute batch in parallel
             results = await asyncio.gather(*tasks, return_exceptions=True)
-            
+
             # Small delay between batches
             if i + parallel_count < len(smartlinks):
-                await asyncio.sleep(random.uniform(1.0, 3.0))
-    
-    async def _run_cycle(self, p: Playwright, smartlinks: List[str], recycle_interval: int = 300):
+                await asyncio.sleep(random.uniform(10.0, 15.0))
+
+    async def _run_cycle(
+        self, p: Playwright, smartlinks: List[str], recycle_interval: int = 300
+    ):
         """Run one cycle: generate random profile for each smartlink, then recycle."""
         cycle_count = 0
-        
+
         while True:
             cycle_count += 1
-            print("\n" + "="*60)
-            print(f"CYCLE #{cycle_count} - Starting at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-            print("="*60)
-            
+            print("\n" + "=" * 60)
+            print(
+                f"CYCLE #{cycle_count} - Starting at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            )
+            print("=" * 60)
+
             # Create a browser instance (no profile needed upfront)
             # We'll create contexts with random profiles for each smartlink
             browser = None
             max_retries = 3
             retry_count = 0
-            
+
             while retry_count < max_retries:
                 try:
                     # Browser arguments
                     args = [
-                        '--disable-blink-features=AutomationControlled',
-                        '--disable-dev-shm-usage',
-                        '--disable-crash-reporter',
-                        '--disable-breakpad',
-                        '--disable-logging',
-                        '--log-level=3',
-                        '--disable-infobars',
-                        '--disable-notifications',
-                        '--disable-background-networking',
-                        '--disable-background-timer-throttling',
+                        "--disable-blink-features=AutomationControlled",
+                        "--disable-dev-shm-usage",
+                        "--disable-crash-reporter",
+                        "--disable-breakpad",
+                        "--disable-logging",
+                        "--log-level=3",
+                        "--disable-infobars",
+                        "--disable-notifications",
+                        "--disable-background-networking",
+                        "--disable-background-timer-throttling",
                     ]
-                    
-                    if sys.platform != 'darwin':
-                        args.append('--no-sandbox')
-                    
+
+                    if sys.platform != "darwin":
+                        args.append("--no-sandbox")
+
                     browser = await p.chromium.launch(
                         headless=self.config["settings"]["headless"],
                         args=args,
-                        ignore_default_args=['--enable-automation', '--metrics-recording-only'],
+                        ignore_default_args=[
+                            "--enable-automation",
+                            "--metrics-recording-only",
+                        ],
                     )
                     print(f"✓ Browser initialized successfully")
                     break
                 except Exception as e:
                     retry_count += 1
                     if retry_count < max_retries:
-                        print(f"⚠ Retry {retry_count}/{max_retries} for browser initialization...")
+                        print(
+                            f"⚠ Retry {retry_count}/{max_retries} for browser initialization..."
+                        )
                         await asyncio.sleep(2)
                     else:
-                        print(f"✗ Failed to initialize browser after {max_retries} attempts: {e}")
+                        print(
+                            f"✗ Failed to initialize browser after {max_retries} attempts: {e}"
+                        )
                         print("Waiting before next cycle...")
                         await asyncio.sleep(recycle_interval)
                         continue
-            
+
             if browser is None:
                 continue
-            
+
             # Process all smartlinks in parallel - each gets its own random profile
             parallel_count = self.config["settings"].get("parallel_smartlinks", 3)
-            print(f"\nProcessing {len(smartlinks)} smartlinks in parallel (batch size: {parallel_count})...")
+            print(
+                f"\nProcessing {len(smartlinks)} smartlinks in parallel (batch size: {parallel_count})..."
+            )
             print(f"Each smartlink will use:")
             print(f"  - Random profile (platform, timezone, locale, viewport, WebGL)")
             print(f"  - Random proxy from: {self.proxy_credentials}")
             shuffled_smartlinks = smartlinks.copy()
             random.shuffle(shuffled_smartlinks)  # Randomize order each cycle
-            
+
             # Track cycle start stats
             cycle_start_time = datetime.now()
             cycle_start_success = self.stats.successful_opens
             cycle_start_failed = self.stats.failed_opens
-            
+
             # Process smartlinks with random profiles
-            await self._process_smartlinks_parallel(browser, shuffled_smartlinks, parallel_count)
-            
+            await self._process_smartlinks_parallel(
+                browser, shuffled_smartlinks, parallel_count
+            )
+
             # Close browser for this cycle
             try:
                 await browser.close()
                 print(f"✓ Closed browser")
             except Exception as e:
                 print(f"Warning: Error closing browser: {e}")
-            
+
             # Calculate cycle statistics
             cycle_end_time = datetime.now()
             cycle_duration = cycle_end_time - cycle_start_time
             cycle_success = self.stats.successful_opens - cycle_start_success
             cycle_failed = self.stats.failed_opens - cycle_start_failed
             cycle_total = cycle_success + cycle_failed
-            
+
             # Record cycle statistics
             self.stats.record_cycle(
-                cycle_count, 
-                cycle_success, 
-                cycle_failed, 
-                cycle_duration.total_seconds()
+                cycle_count, cycle_success, cycle_failed, cycle_duration.total_seconds()
             )
-            
+
             # Print cycle summary report
-            print("\n" + "="*60)
+            print("\n" + "=" * 60)
             print(f"CYCLE #{cycle_count} SUMMARY REPORT")
-            print("="*60)
+            print("=" * 60)
             print(f"Duration: {cycle_duration}")
             print(f"Smartlinks Processed: {cycle_total}")
-            print(f"  ✓ Successful: {cycle_success} ({cycle_success/max(cycle_total,1)*100:.1f}%)")
-            print(f"  ✗ Failed: {cycle_failed} ({cycle_failed/max(cycle_total,1)*100:.1f}%)")
-            print(f"Average Time per Smartlink: {cycle_duration.total_seconds()/max(cycle_total,1):.2f} seconds")
+            print(
+                f"  ✓ Successful: {cycle_success} ({cycle_success/max(cycle_total,1)*100:.1f}%)"
+            )
+            print(
+                f"  ✗ Failed: {cycle_failed} ({cycle_failed/max(cycle_total,1)*100:.1f}%)"
+            )
+            print(
+                f"Average Time per Smartlink: {cycle_duration.total_seconds()/max(cycle_total,1):.2f} seconds"
+            )
             print(f"Mode: Random profile per smartlink")
-            print("="*60)
-            
+            print("=" * 60)
+
             # Generate HTML report after each cycle
-            try:
-                report_path = self.stats.generate_html_report(f"traffic_report_cycle_{cycle_count}.html")
-                print(f"\n📊 HTML Report generated: {report_path}")
-            except Exception as e:
-                print(f"⚠ Warning: Failed to generate HTML report: {e}")
-            
-            print(f"\nNext cycle will start in {recycle_interval} seconds ({recycle_interval/60:.1f} minutes)")
-            
+            # try:
+            #     report_path = self.stats.generate_html_report(
+            #         f"traffic_report_cycle_{cycle_count}.html"
+            #     )
+            #     print(f"\n📊 HTML Report generated: {report_path}")
+            # except Exception as e:
+            #     print(f"⚠ Warning: Failed to generate HTML report: {e}")
+            now = datetime.now()
+            next_date = now + timedelta(minutes=int(recycle_interval / 60))
+            string_next_date = next_date.strftime("%Y-%m-%d %I:%M %p")
+
+            print(
+                f"\nNext cycle will start in {recycle_interval} seconds ({recycle_interval/60:.1f} minutes) => {string_next_date}"
+            )
+
             # Wait for recycle interval
             await asyncio.sleep(recycle_interval)
-    
+
     async def run(self):
         """Main execution method - auto-generates profiles and recycles every 5 minutes."""
         async with async_playwright() as p:
             smartlinks = self.config["smartlinks"]
             settings = self.config["settings"]
-            
+
             # Get recycle interval (default 5 minutes = 300 seconds)
             recycle_interval = settings.get("recycle_interval_seconds", 300)
-            
-            print("="*60)
+
+            print("=" * 60)
             print("ADSTERRRA SMARTLINK OPENER - AUTO MODE")
-            print("="*60)
+            print("=" * 60)
             print(f"Smartlinks: {len(smartlinks)}")
-            print(f"Recycle Interval: {recycle_interval} seconds ({recycle_interval/60:.1f} minutes)")
+            print(
+                f"Recycle Interval: {recycle_interval} seconds ({recycle_interval/60:.1f} minutes)"
+            )
             print(f"Processing: Sequential (one by one)")
-            print("="*60)
+            print("=" * 60)
             print("\nStarting automated cycles...")
             print("Press Ctrl+C to stop\n")
-            
+
             try:
                 await self._run_cycle(p, smartlinks, recycle_interval)
             except KeyboardInterrupt:
-                print("\n\n" + "="*60)
+                print("\n\n" + "=" * 60)
                 print("STOPPING - User Interrupted")
-                print("="*60)
+                print("=" * 60)
                 self.stats.print_summary()
-                
+
                 # Generate final HTML report
-                try:
-                    report_path = self.stats.generate_html_report("traffic_report_final.html")
-                    print(f"\n📊 Final HTML Report generated: {report_path}")
-                except Exception as e:
-                    print(f"⚠ Warning: Failed to generate final HTML report: {e}")
-                
-                print("\nExiting...")
+                # try:
+                #     report_path = self.stats.generate_html_report("traffic_report_final.html")
+                #     print(f"\n📊 Final HTML Report generated: {report_path}")
+                # except Exception as e:
+                #     print(f"⚠ Warning: Failed to generate final HTML report: {e}")
+
+                # print("\nExiting...")
 
 
 async def main():
     """Entry point for the application."""
     # Suppress macOS crash reporter warnings
-    if sys.platform == 'darwin':
-        os.environ['CHROME_CRASH_PAD_HANDLER'] = '0'
-        os.environ['ELECTRON_DISABLE_CRASH_REPORTER'] = '1'
-    
+    if sys.platform == "darwin":
+        os.environ["CHROME_CRASH_PAD_HANDLER"] = "0"
+        os.environ["ELECTRON_DISABLE_CRASH_REPORTER"] = "1"
+
     opener = AdsterraSmartlinkOpener()
     await opener.run()
 
 
 if __name__ == "__main__":
     asyncio.run(main())
-

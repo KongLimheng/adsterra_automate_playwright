@@ -1,5 +1,12 @@
 {
   "smartlinks": [
+    "https://reliableguardianindifference.com/iknunu9s?key=f1162fdd6036d53b59cbc0e350afe707",
+    "https://reliableguardianindifference.com/hzmd2vn2?key=462d74a5ce0526650108fbd94bdf9b62",
+    "https://reliableguardianindifference.com/ymy3v7zvs?key=e755d0ada7cd29a91dc7b0301f6dc3e3",
+    "https://reliableguardianindifference.com/k0m49bbc?key=4d5bd8323cbcefaa88189335410b4f61",
+    "https://reliableguardianindifference.com/t2jv44p9iv?key=1b6d5893e86856f315b3ed7d445db552",
+    "https://reliableguardianindifference.com/wbu0g1m8?key=2ea4c90bd03b54556af8dbbcee597639",
+    "https://reliableguardianindifference.com/d7jyz75nx4?key=355a8a3d3b0268ea059be367a9eb4984",
     "https://reliableguardianindifference.com/yv72zqdp2u?key=44c923f621e5ebf01fb4078895e3b8af",
     "https://reliableguardianindifference.com/q2pft73g2j?key=7f65b140132fb148f1ab0166ce2887c7",
     "https://reliableguardianindifference.com/bnsh8rn73y?key=592462ab9834701eb1b5f7d06a1aa285",
@@ -24,78 +31,7 @@
     "https://reliableguardianindifference.com/psuehdk4d?key=533ccc61246a48dd91a859a5bbd970ad",
     "https://reliableguardianindifference.com/fjdmyf8vv5?key=e1fe5ec7bb686db4abfbe340c3fa2b64"
   ],
-  "profiles": [
-    {
-      "name": "profile1",
-      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      "viewport": {
-        "width": 1920,
-        "height": 1080
-      },
-      "timezone": "America/New_York",
-      "locale": "en-US",
-      "platform": "Win32",
-      "webgl_vendor": "Google Inc. (NVIDIA)",
-      "webgl_renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 3080 Direct3D11 vs_5_0 ps_5_0, D3D11)",
-      "proxy": null
-    },
-    {
-      "name": "profile2",
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      "viewport": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "America/Los_Angeles",
-      "locale": "en-US",
-      "platform": "MacIntel",
-      "webgl_vendor": "Intel Inc.",
-      "webgl_renderer": "Intel Iris OpenGL Engine",
-      "proxy": null
-    },
-    {
-      "name": "profile3",
-      "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      "viewport": {
-        "width": 1366,
-        "height": 768
-      },
-      "timezone": "Europe/London",
-      "locale": "en-GB",
-      "platform": "Linux x86_64",
-      "webgl_vendor": "Google Inc. (Mesa)",
-      "webgl_renderer": "ANGLE (Mesa, Mesa DRI Intel(R) HD Graphics 620 (KBL GT2), OpenGL 4.5)",
-      "proxy": null
-    },
-    {
-      "name": "profile4",
-      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-      "viewport": {
-        "width": 1920,
-        "height": 1080
-      },
-      "timezone": "America/Chicago",
-      "locale": "en-US",
-      "platform": "Win32",
-      "webgl_vendor": "Google Inc. (AMD)",
-      "webgl_renderer": "ANGLE (AMD, AMD Radeon RX 6800 XT Direct3D11 vs_5_0 ps_5_0, D3D11)",
-      "proxy": null
-    },
-    {
-      "name": "profile5",
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-      "viewport": {
-        "width": 2560,
-        "height": 1440
-      },
-      "timezone": "America/Denver",
-      "locale": "en-US",
-      "platform": "MacIntel",
-      "webgl_vendor": "Apple Inc.",
-      "webgl_renderer": "Apple M1",
-      "proxy": null
-    }
-  ],
+
   "settings": {
     "headless": false,
     "timeout": 60000,
