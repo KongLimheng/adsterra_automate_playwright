@@ -456,7 +456,7 @@ class AdsterraSmartlinkOpener:
         try:
             self.ua = UserAgent(
                 browsers=["Edge", "Safari", "Chrome"],
-                fallback="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                fallback="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3.1 Safari/605.1.15",
             )
             print("✓ UserAgent generator initialized")
         except Exception as e:
@@ -621,7 +621,7 @@ class AdsterraSmartlinkOpener:
 
         # Extract Edge and Chrome versions from user agent
         edge_version = "120.0.0.0"
-        chrome_version = "120.0.0.0"
+        chrome_version = "141.0.0.0"
 
         if "Edg/" in user_agent:
             try:
@@ -1593,7 +1593,7 @@ class AdsterraSmartlinkOpener:
 
             # Small delay between batches
             if i + parallel_count < len(smartlinks):
-                await asyncio.sleep(random.uniform(10.0, 15.0))
+                await asyncio.sleep(random.uniform(5.0, 15.0))
 
     async def _run_cycle(
         self, p: Playwright, smartlinks: List[str], recycle_interval: int = 300
