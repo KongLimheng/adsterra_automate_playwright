@@ -1529,7 +1529,7 @@ class AdsterraSmartlinkOpener:
     ) -> bool:
         """Open a single smartlink with completely random profile and random proxy."""
         # Generate a completely new random profile for this smartlink
-        profile = self._generate_random_profile(link_index, use_proxy=True)
+        profile = self._generate_random_profile(link_index, use_proxy=False)
 
         # Create context with this random profile
         context_options = {
@@ -1558,8 +1558,8 @@ class AdsterraSmartlinkOpener:
             )
 
         print(f"{profile['user_agent']}")
-
         context = None
+
         try:
             # Create new context with random profile and proxy
             context = await browser.new_context(**context_options)
