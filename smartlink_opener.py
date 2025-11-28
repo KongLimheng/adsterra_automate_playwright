@@ -5,6 +5,7 @@ Opens Adsterra smartlinks using different user profiles, device fingerprints, an
 Enhanced with fake-useragent package for realistic user agent generation
 """
 
+import argparse
 import asyncio
 import json
 import os
@@ -23,6 +24,7 @@ from typing import List, Dict, Optional, Tuple
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
 from fake_useragent import UserAgent
+import requests
 
 
 class TrafficStats:
@@ -444,23 +446,25 @@ class TrafficStats:
 
 
 class AdsterraSmartlinkOpener:
-    def __init__(self, config_path: str = "config.json"):
+    def __init__(self, config_path: str = "config.json", headless: bool = False):
         """Initialize the Adsterra Smartlink Opener with configuration."""
         self.config_path = config_path
         self.config = self._load_config()
+        self.is_headless = bool(headless)
         self.profiles_dir = Path("profiles")
         self.profiles_dir.mkdir(exist_ok=True)
         self.stats = TrafficStats()
+        self.browser_launch_args = self._build_browser_args()
 
         # Initialize UserAgent generator
         try:
             self.ua = UserAgent(
                 browsers=["Edge", "Safari", "Chrome"],
-                fallback="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                fallback="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3.1 Safari/605.1.15",
             )
-            print("[OK] UserAgent generator initialized")
+            print("✓ UserAgent generator initialized")
         except Exception as e:
-            print(f"[WARN] Failed to initialize UserAgent generator: {e}")
+            print(f"⚠ Warning: Failed to initialize UserAgent generator: {e}")
             print("  Falling back to manual user agent generation")
             self.ua = None
 
@@ -536,6 +540,45 @@ class AdsterraSmartlinkOpener:
             print(f"Warning: Invalid proxy format '{proxy_string}': {e}")
             return None
 
+    def _build_browser_args(self) -> List[str]:
+        """Build launch arguments tailored for the current headless mode."""
+        args = [
+            "--disable-blink-features=AutomationControlled",
+            "--disable-dev-shm-usage",
+            "--disable-breakpad",
+            "--disable-logging",
+            "--log-level=3",
+            "--disable-infobars",
+            "--disable-notifications",
+            "--disable-background-networking",
+            "--disable-background-timer-throttling",
+        ]
+
+        if sys.platform != "darwin":
+            args.append("--no-sandbox")
+
+        if self.is_headless:
+            args.extend(
+                [
+                    "--headless=new",
+                    "--disable-gpu",
+                    "--disable-software-rasterizer",
+                    "--mute-audio",
+                    "--hide-scrollbars",
+                    "--window-size=1920,1080",
+                ]
+            )
+        else:
+            args.extend(
+                [
+                    "--enable-gpu",
+                    "--use-gl=desktop",
+                    "--ignore-gpu-blocklist",
+                ]
+            )
+
+        return args
+
     def _get_random_proxy(self) -> Optional[str]:
         """Get a random proxy from the proxy list."""
         if not self.proxy_credentials:
@@ -550,28 +593,13 @@ class AdsterraSmartlinkOpener:
         # Parse proxy configuration
         proxy_config = self._parse_proxy(profile.get("proxy"))
 
-        # Browser arguments - minimal set to avoid crashes
-        args = [
-            "--disable-blink-features=AutomationControlled",
-            "--disable-dev-shm-usage",
-            # '--disable-crash-reporter',
-            "--disable-breakpad",
-            "--disable-logging",
-            "--log-level=3",
-            "--disable-infobars",
-            "--disable-notifications",
-            "--disable-background-networking",
-            "--disable-background-timer-throttling",
-        ]
-
-        # Only add --no-sandbox on Linux, not on macOS
-        if sys.platform != "darwin":
-            args.append("--no-sandbox")
+        # Browser arguments are tailored for headless/headful modes
+        args = list(self.browser_launch_args)
 
         # Launch browser first (more stable than persistent context)
         try:
             browser = await chromium.launch(
-                headless=self.config["settings"]["headless"],
+                headless=self.is_headless,
                 args=args,
                 ignore_default_args=["--enable-automation", "--metrics-recording-only"],
             )
@@ -621,7 +649,7 @@ class AdsterraSmartlinkOpener:
 
         # Extract Edge and Chrome versions from user agent
         edge_version = "120.0.0.0"
-        chrome_version = "120.0.0.0"
+        chrome_version = "141.0.0.0"
 
         if "Edg/" in user_agent:
             try:
@@ -800,6 +828,37 @@ class AdsterraSmartlinkOpener:
                     runtime: {}
                 };"""
 
+        if is_safari:
+            webgl_script = f"""
+                if (window.WebGLRenderingContext) {{
+                    const getParameter = WebGLRenderingContext.prototype.getParameter;
+                    WebGLRenderingContext.prototype.getParameter = function(parameter) {{
+                        if (parameter === 37445) {{
+                            return '{profile.get("webgl_vendor", "Apple Inc.")}';
+                        }}
+                        if (parameter === 37446) {{
+                            return '{profile.get("webgl_renderer", "Apple M1")}';
+                        }}
+                        return getParameter.call(this, parameter);
+                    }};
+                }}
+            """
+        else:
+            webgl_script = f"""
+                if (window.WebGLRenderingContext) {{
+                    const getParameter = WebGLRenderingContext.prototype.getParameter;
+                    WebGLRenderingContext.prototype.getParameter = function(parameter) {{
+                        if (parameter === 37445) {{
+                            return '{profile.get("webgl_vendor", "Google Inc. (NVIDIA)")}';
+                        }}
+                        if (parameter === 37446) {{
+                            return '{profile.get("webgl_renderer", "ANGLE (NVIDIA)")}';
+                        }}
+                        return getParameter.call(this, parameter);
+                    }};
+                }}
+            """
+
         return f"""
             (function() {{
                 // Remove webdriver property
@@ -819,31 +878,7 @@ class AdsterraSmartlinkOpener:
                 {device_memory_script}
                 
                 // WebGL fingerprinting
-                {f'''
-                // Safari WebGL uses native rendering, not ANGLE
-                const getParameter = WebGLRenderingContext.prototype.getParameter;
-                WebGLRenderingContext.prototype.getParameter = function(parameter) {{
-                    if (parameter === 37445) {{
-                        return '{profile.get("webgl_vendor", "Apple Inc.")}';
-                    }}
-                    if (parameter === 37446) {{
-                        return '{profile.get("webgl_renderer", "Apple M1")}';
-                    }}
-                    return getParameter.call(this, parameter);
-                }};
-                ''' if is_safari else f'''
-                // Chrome/Edge WebGL uses ANGLE
-                const getParameter = WebGLRenderingContext.prototype.getParameter;
-                WebGLRenderingContext.prototype.getParameter = function(parameter) {{
-                    if (parameter === 37445) {{
-                        return '{profile.get("webgl_vendor", "Google Inc. (NVIDIA)")}';
-                    }}
-                    if (parameter === 37446) {{
-                        return '{profile.get("webgl_renderer", "ANGLE (NVIDIA)")}';
-                    }}
-                    return getParameter.call(this, parameter);
-                }};
-                '''}
+                {webgl_script}
                 
                 // Languages
                 Object.defineProperty(navigator, 'languages', {{
@@ -873,12 +908,14 @@ class AdsterraSmartlinkOpener:
                 {self._get_safari_fingerprint_script(profile) if is_safari else ''}
                 
                 // Permissions
-                const originalQuery = window.navigator.permissions.query;
-                window.navigator.permissions.query = (parameters) => (
-                    parameters.name === 'notifications' ?
-                        Promise.resolve({{ state: Notification.permission }}) :
-                        originalQuery(parameters)
-                );
+                if (window.navigator.permissions && window.navigator.permissions.query) {{
+                    const originalQuery = window.navigator.permissions.query.bind(window.navigator.permissions);
+                    window.navigator.permissions.query = (parameters) => (
+                        parameters.name === 'notifications' ?
+                            Promise.resolve({{ state: Notification.permission }}) :
+                            originalQuery(parameters)
+                    );
+                }}
             }})();
         """
 
@@ -1135,6 +1172,7 @@ class AdsterraSmartlinkOpener:
 
             # Wait for Adsterra redirect chain with better error handling
             redirect_success = await self._wait_for_adsterra_redirect(page)
+            print(f"[{profile_name}] redirect success? {redirect_success}")
 
             if not redirect_success or page.is_closed():
                 raise Exception("Page closed during redirect")
@@ -1161,7 +1199,7 @@ class AdsterraSmartlinkOpener:
             self.stats.record_success(
                 profile_name, url, final_url=final_url, duration=duration
             )
-            print(f"[{profile_name}] [OK] Successfully processed")
+            print(f"[{profile_name}] ✓ Successfully processed")
 
             return True
 
@@ -1376,6 +1414,9 @@ class AdsterraSmartlinkOpener:
 
         # Fallback to manual generation if package fails
         if not user_agent:
+            print("///////////////////////////////////////////////")
+            print("No user_agent condition")
+            print("///////////////////////////////////////////////")
             # Platform selection (OS first, then browser)
             os_platforms = [
                 {"name": "Win32", "ua_base": "Windows NT 10.0; Win64; x64"},
@@ -1475,7 +1516,6 @@ class AdsterraSmartlinkOpener:
                 "26.1",
             ]
             webkit_versions = ["605.1.15", "605.1.12", "605.1.10", "604.5.6"]
-
             # Generate user agent based on browser type
             if browser == "edge":
                 edge_version = random.choice(edge_versions)
@@ -1578,8 +1618,17 @@ class AdsterraSmartlinkOpener:
         self, browser: Browser, smartlinks: List[str], parallel_count: int = 3
     ):
         """Process smartlinks in parallel batches with random profile and proxy per smartlink."""
+
+        # changeIp2 = requests.get(
+        #     "https://proxypanel.io/proxy/change-ip/zhogyichan/custom38/83d4482377a26ffafeb311fdd6881895:xytt3t3F25OL_ow_-DSctI_cEc6qc_a-H2PPQXRDzlA"
+        # )
+        # changeIp2.raise_for_status()
         # Process smartlinks in batches
         for i in range(0, len(smartlinks), parallel_count):
+            # changeIp = requests.get("proxypanel.io/proxy/change-ip/zhogyichan/custom36/83d4482377a26ffafeb311fdd6881895:xytt3t3F25OL_ow_-DSctI_cEc6qc_a-H2PPQXRDzlA")
+            # changeIp.raise_for_status()
+
+            # time.sleep(10)
             batch = smartlinks[i : i + parallel_count]
 
             # Create tasks for parallel processing - each gets its own random profile
@@ -1593,7 +1642,7 @@ class AdsterraSmartlinkOpener:
 
             # Small delay between batches
             if i + parallel_count < len(smartlinks):
-                await asyncio.sleep(random.uniform(10.0, 15.0))
+                await asyncio.sleep(random.uniform(5.0, 15.0))
 
     async def _run_cycle(
         self, p: Playwright, smartlinks: List[str], recycle_interval: int = 300
@@ -1617,32 +1666,18 @@ class AdsterraSmartlinkOpener:
 
             while retry_count < max_retries:
                 try:
-                    # Browser arguments
-                    args = [
-                        "--disable-blink-features=AutomationControlled",
-                        "--disable-dev-shm-usage",
-                        "--disable-crash-reporter",
-                        "--disable-breakpad",
-                        "--disable-logging",
-                        "--log-level=3",
-                        "--disable-infobars",
-                        "--disable-notifications",
-                        "--disable-background-networking",
-                        "--disable-background-timer-throttling",
-                    ]
-
-                    if sys.platform != "darwin":
-                        args.append("--no-sandbox")
+                    # Browser arguments shared across the automation lifecycle
+                    args = list(self.browser_launch_args)
 
                     browser = await p.chromium.launch(
-                        headless=self.config["settings"]["headless"],
+                        headless=self.is_headless,
                         args=args,
                         ignore_default_args=[
                             "--enable-automation",
                             "--metrics-recording-only",
                         ],
                     )
-                    print(f"[OK] Browser initialized successfully")
+                    print(f"✓ Browser initialized successfully")
                     break
                 except Exception as e:
                     retry_count += 1
@@ -1686,7 +1721,7 @@ class AdsterraSmartlinkOpener:
             # Close browser for this cycle
             try:
                 await browser.close()
-                print(f"[OK] Closed browser")
+                print(f"✓ Closed browser")
             except Exception as e:
                 print(f"Warning: Error closing browser: {e}")
 
@@ -1709,7 +1744,7 @@ class AdsterraSmartlinkOpener:
             print(f"Duration: {cycle_duration}")
             print(f"Smartlinks Processed: {cycle_total}")
             print(
-                f"  [OK] Successful: {cycle_success} ({cycle_success/max(cycle_total,1)*100:.1f}%)"
+                f"  ✓ Successful: {cycle_success} ({cycle_success/max(cycle_total,1)*100:.1f}%)"
             )
             print(
                 f"  ✗ Failed: {cycle_failed} ({cycle_failed/max(cycle_total,1)*100:.1f}%)"
@@ -1778,6 +1813,17 @@ class AdsterraSmartlinkOpener:
                 # print("\nExiting...")
 
 
+def _parse_cli_args():
+    """Parse command-line arguments."""
+    parser = argparse.ArgumentParser(description="Adsterra smartlink automation runner")
+    parser.add_argument(
+        "--headless",
+        action="store_true",
+        help="Force headless mode (omit flag to run headful)",
+    )
+    return parser.parse_args()
+
+
 async def main():
     """Entry point for the application."""
     # Suppress macOS crash reporter warnings
@@ -1785,7 +1831,10 @@ async def main():
         os.environ["CHROME_CRASH_PAD_HANDLER"] = "0"
         os.environ["ELECTRON_DISABLE_CRASH_REPORTER"] = "1"
 
-    opener = AdsterraSmartlinkOpener()
+    args = _parse_cli_args()
+    opener = AdsterraSmartlinkOpener(headless=args.headless)
+
+    print("args.headless", args.headless)
     await opener.run()
 
 

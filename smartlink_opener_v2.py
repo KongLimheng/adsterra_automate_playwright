@@ -12,6 +12,7 @@ import sys
 import random
 import time
 from pathlib import Path
+from flask import request
 from playwright.async_api import (
     Browser,
     BrowserType,
@@ -23,6 +24,7 @@ from typing import List, Dict, Optional, Tuple
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
 from fake_useragent import UserAgent
+import requests
 
 
 class TrafficStats:
@@ -468,7 +470,7 @@ class AdsterraSmartlinkOpener:
         # These will be randomly selected for each smartlink visit
         self.proxy_credentials = [
             "zhogyichan.custom36:hello123",
-            "zhogyichan.custom38:hello123",
+            "zhogyichan.custom38:hello123"
         ]
 
         # Proxy server configuration (adjust if your proxy service uses different host/port)
@@ -967,6 +969,7 @@ class AdsterraSmartlinkOpener:
 
                     # Safely scroll
                     scroll_success = await self._safe_scroll(page, current_position)
+
                     if not scroll_success:
                         # Page navigated, break out
                         remaining = duration - elapsed
@@ -1286,9 +1289,9 @@ class AdsterraSmartlinkOpener:
                 target_browser_roll = random.random()
                 target_browser = None
 
-                if target_browser_roll < 0.45:  # 45% Edge
+                if target_browser_roll < 0.60:  # 45% Edge
                     target_browser = "edge"
-                elif target_browser_roll < 0.90:  # 45% Safari (45% + 45% = 90%)
+                elif target_browser_roll < 0.40:  # 45% Safari (45% + 45% = 90%)
                     target_browser = "safari"
                 else:  # 10% Chrome (90% + 10% = 100%)
                     target_browser = "chrome"
@@ -1376,6 +1379,9 @@ class AdsterraSmartlinkOpener:
 
         # Fallback to manual generation if package fails
         if not user_agent:
+            print("///////////////////////////////////////////////")
+            print("No user_agent condition")
+            print("///////////////////////////////////////////////")
             # Platform selection (OS first, then browser)
             os_platforms = [
                 {"name": "Win32", "ua_base": "Windows NT 10.0; Win64; x64"},
@@ -1475,7 +1481,6 @@ class AdsterraSmartlinkOpener:
                 "26.1",
             ]
             webkit_versions = ["605.1.15", "605.1.12", "605.1.10", "604.5.6"]
-
             # Generate user agent based on browser type
             if browser == "edge":
                 edge_version = random.choice(edge_versions)
@@ -1578,8 +1583,17 @@ class AdsterraSmartlinkOpener:
         self, browser: Browser, smartlinks: List[str], parallel_count: int = 3
     ):
         """Process smartlinks in parallel batches with random profile and proxy per smartlink."""
+
+        # changeIp2 = requests.get(
+        #     "https://proxypanel.io/proxy/change-ip/zhogyichan/custom38/83d4482377a26ffafeb311fdd6881895:xytt3t3F25OL_ow_-DSctI_cEc6qc_a-H2PPQXRDzlA"
+        # )
+        # changeIp2.raise_for_status()
         # Process smartlinks in batches
         for i in range(0, len(smartlinks), parallel_count):
+            # changeIp = requests.get("proxypanel.io/proxy/change-ip/zhogyichan/custom36/83d4482377a26ffafeb311fdd6881895:xytt3t3F25OL_ow_-DSctI_cEc6qc_a-H2PPQXRDzlA")
+            # changeIp.raise_for_status()
+
+            # time.sleep(10)
             batch = smartlinks[i : i + parallel_count]
 
             # Create tasks for parallel processing - each gets its own random profile
@@ -1629,13 +1643,16 @@ class AdsterraSmartlinkOpener:
                         "--disable-notifications",
                         "--disable-background-networking",
                         "--disable-background-timer-throttling",
+                        "--enable-gpu",
+                        "--use-gl=desktop",
+                        "--ignore-gpu-blocklist",
                     ]
 
                     if sys.platform != "darwin":
                         args.append("--no-sandbox")
 
                     browser = await p.chromium.launch(
-                        headless=self.config["settings"]["headless"],
+                        headless=False,
                         args=args,
                         ignore_default_args=[
                             "--enable-automation",

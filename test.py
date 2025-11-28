@@ -1,7 +1,10 @@
-from datetime import datetime, timedelta
+import tabula
 
+# extract table
+dfs = tabula.read_pdf("05082025 USD.pdf", pages="1", multiple_tables=True)
 
-now = datetime.now()
-next_date = now + timedelta(minutes=int(600 / 60))
+for i, df in enumerate(dfs):
+    print(df)
+    df.to_excel("USD.xlsx", sheet_name=f"Table_{i+1}", index=False)
 
-print(next_date.strftime("%Y-%m-%d %I:%M %p"))
+print("Saved to output.xlsx")
